@@ -5,4 +5,3 @@
 azure-functions
 flask
 pymongo
-flask-cors
