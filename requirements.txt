@@ -5,3 +5,8 @@
 azure-functions
 flask
 pymongo
+google-auth 
+google-auth-oauthlib 
+google-auth-httplib2
+flask-bcrypt
+PyJWT

@@ -3,16 +3,24 @@ from flask import request, Flask,jsonify
 from pymongo.mongo_client import MongoClient
 from bson.objectid import ObjectId
 from bson import json_util
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from flask_bcrypt import Bcrypt
+import jwt
+import datetime
 uri = "mongodb+srv://se1212312121:se1212312121@cluster0.kjvosuu.mongodb.net/"
 
 # Create a new client and connect to the server
 client = MongoClient(uri)
 
 app = Flask(__name__)
-
+keyforlogin = "1212312121"
+bcrypt = Bcrypt(app)
 db = client["vivart"]
 customer = db["customer"]
 post = db["post"]
+
+clientId = "1007059418552-8qgb0riokmg3t0t993ecjodnglvm0bj2.apps.googleusercontent.com"
 
 def main(req: func.HttpRequest, context: func.Context) -> func.HttpResponse:
     """Each request is redirected to the WSGI handler.
@@ -23,21 +31,61 @@ def main(req: func.HttpRequest, context: func.Context) -> func.HttpResponse:
 def test():
     return("lfkpowkoefk")
 
+@app.route("/signup/email/google", methods=["POST"])
+def signup_google():
+    data = request.get_json()
+    token = data.get("credential")
+    if token :
+        decoded_data = id_token.verify_oauth2_token(token, requests.Request(), clientId)
+        find = customer.find_one({"email": decoded_data["email"]})
+        if not find :
+            return jsonify(decoded_data), 200
+    elif "email" in data:
+        find = customer.find_one({"email": data["email"]})
+        if not find :
+            return jsonify({"email" : data["email"]}), 200
+    return {"message" : "fail"}, 400
+
 @app.route("/signup", methods=["POST"])
 def signup():
     data = request.get_json()
     find = customer.find_one({"username": data["username"]})
-    if not find:
+    if not find :
+        if "password" in data :
+            data["password"]=bcrypt.generate_password_hash(data["password"]).decode('utf-8')
         customer.insert_one(data)
-        return {"message": "Signup successful"}, 201
-    return {"message": "Signup fail"}, 401
+        payload = {
+        "username": data['username'],
+        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=6)  
+        }
+        token = jwt.encode(payload, keyforlogin, algorithm="HS256")
+        return jsonify(token), 200
+    return {"message" : "fail"}, 400
 
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    find = customer.find_one({"username": data["username"], "password": data["password"]})
-    if find:
-        return {"message": "login successful"}, 201
+    token = data.get("credential")
+    if token :
+        decoded_data = id_token.verify_oauth2_token(token, requests.Request(), clientId)
+        find = customer.find_one({"email": decoded_data["email"]})
+        if find :
+            payload = {
+            "username": find['username'],
+            "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=6)  
+            }
+            token = jwt.encode(payload, keyforlogin, algorithm="HS256")
+            return jsonify(token), 201
+    elif "username" in data:
+        find = customer.find_one({"username": data["username"]})
+        if find:
+            if bcrypt.check_password_hash(find["password"], data["password"]):
+                payload = {
+                "username": find['username'],
+                "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=6)  
+                }
+                token = jwt.encode(payload, keyforlogin, algorithm="HS256")
+                return jsonify(token), 201
     return {"message": "login fail"}, 401
 
 @app.route("/post", methods=["POST"])
@@ -67,3 +115,4 @@ def getallpost():
         return jsonify(data)
     else:
         return jsonify({"error": "Data not found"}), 404
+    
