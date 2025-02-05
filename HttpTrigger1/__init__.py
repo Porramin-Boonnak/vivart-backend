@@ -10,7 +10,6 @@ import jwt
 import datetime
 uri = "mongodb+srv://se1212312121:se1212312121@cluster0.kjvosuu.mongodb.net/"
 
-# Create a new client and connect to the server
 client = MongoClient(uri)
 
 app = Flask(__name__)
@@ -97,22 +96,33 @@ def postdata():
 
 @app.route('/post/<string:_id>', methods=['GET'])
 def getpost(_id):
-    object_id = ObjectId(_id)  # แปลง _id เป็น ObjectId
-    data = post.find_one({"_id": object_id})  # ค้นหาจาก MongoDB
+    object_id = ObjectId(_id)  
+    data = post.find_one({"_id": object_id})  
     if data:
-        data['_id'] = str(data['_id'])  # แปลง ObjectId เป็น string เพื่อให้ JSON ใช้ได้
+        data['_id'] = str(data['_id'])  
         return jsonify(data)
     else:
         return jsonify({"error": "Data not found"}), 404
     
 @app.route('/post', methods=['GET'])
 def getallpost():
-    data = list(post.find())  # ดึงข้อมูลทั้งหมดจาก MongoDB
+    data = list(post.find())  
     if data:
-        # แปลง ObjectId เป็น string ในทุก document
         for item in data:
-            item['_id'] = str(item['_id'])  # แปลง ObjectId เป็น string
+            item['_id'] = str(item['_id'])  
         return jsonify(data)
+    else:
+        return jsonify({"error": "Data not found"}), 404
+    
+    
+@app.route('/status', methods=['POST'])
+def getstatus():
+    data = request.get_json()
+    decoded = jwt.decode(data["token"], keyforlogin, algorithms=["HS256"])
+    find = customer.find_one({"username": decoded["username"]})
+    if find:
+        find['_id'] = str(find['_id'])  
+        return jsonify(find),200
     else:
         return jsonify({"error": "Data not found"}), 404
     
