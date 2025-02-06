@@ -97,9 +97,10 @@ def postdata():
 @app.route('/post/<string:_id>', methods=['GET'])
 def getpost(_id):
     object_id = ObjectId(_id)  
+    post.update_one({"_id": object_id}, {"$inc": {"views": 1}})
     data = post.find_one({"_id": object_id})  
     if data:
-        data['_id'] = str(data['_id'])  
+        data['_id'] = str(data['_id'])
         return jsonify(data)
     else:
         return jsonify({"error": "Data not found"}), 404
@@ -126,3 +127,22 @@ def getstatus():
     else:
         return jsonify({"error": "Data not found"}), 404
     
+@app.route('/update/like/<string:_id>', methods=["PUT"])
+def updatelike(_id):
+    object_id = ObjectId(_id)  
+    user = request.get_json()
+    find = post.find_one({"_id": object_id}) 
+    if find:
+        post.update_one({"_id": object_id}, {"$addToSet": {"like": user}}, upsert=True)
+        return jsonify({"message": "successful"}), 200
+    return jsonify({"message": "fail"}), 400
+
+@app.route('/delete/like/<string:_id>', methods=['DELETE'])
+def deletelike(_id):
+    object_id = ObjectId(_id)  
+    user = request.get_json()
+    find = post.find_one({"_id": object_id})  
+    if find:
+        post.update_one({"_id": object_id}, {"$pull": {"like": user}}, upsert=True)
+        return jsonify({"message": "successful"}), 200
+    return jsonify({"message": "fail"}), 400
